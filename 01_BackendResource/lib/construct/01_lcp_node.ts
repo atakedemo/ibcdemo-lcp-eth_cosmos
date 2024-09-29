@@ -4,7 +4,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Repository } from "aws-cdk-lib/aws-ecr";
 import { AwsLogDriver, Cluster, ContainerImage, CpuArchitecture, FargateTaskDefinition, FargateService, OperatingSystemFamily } from "aws-cdk-lib/aws-ecs";
 import { Construct } from 'constructs';
-import { LinuxArmBuildImage } from "aws-cdk-lib/aws-codebuild";
 
 export class LcpNode extends Construct {
   constructor(scope: Construct, id: string, _repositry: Repository) {
@@ -47,6 +46,40 @@ export class LcpNode extends Construct {
     // --------------------
     // IAM(Role, Policy)
     // --------------------
+    const statementDescriptionLogGr = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "logs:DescribeLogGroups"
+      ],
+      resources: [
+        "*"
+      ]
+    });
+
+    const statementSsm = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+      ],
+      resources: [
+        "*"
+      ]
+    });
+
+    // const servicePolicy = new iam.Policy(
+    //   this,
+    //   'AppSyncInlinePolicy', {
+    //     policyName: 'AppSyncInlinePolicy',
+    //     statements: [
+    //       statementDescriptionLogGr,
+    //       statementSsm
+    //     ]
+    //   }
+    // )
+    
     const role = new iam.Role(this, 'lpcEcsRole', {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       managedPolicies: [
@@ -57,6 +90,8 @@ export class LcpNode extends Construct {
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryReadOnly"),
       ],
     })
+    role.addToPolicy(statementSsm);
+    role.addToPolicy(statementDescriptionLogGr);
 
     // --------------------
     // AWS ECS & ECR
