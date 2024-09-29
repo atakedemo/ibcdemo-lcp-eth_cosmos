@@ -1,6 +1,7 @@
 
 import { Repository } from "aws-cdk-lib/aws-ecr";
 import { Construct } from 'constructs';
+import { CfnOutput } from "aws-cdk-lib"
 
 export class EcrStack extends Construct {
   public readonly _repositryUri: string;
@@ -19,5 +20,8 @@ export class EcrStack extends Construct {
         repositoryName: `repo-ibc-demo-ethereum-cosmos`,
       }
     );
+    new CfnOutput(this, "RepositoryUri", {
+      value: this._repositry.repositoryUri,
+    });
   }
 }

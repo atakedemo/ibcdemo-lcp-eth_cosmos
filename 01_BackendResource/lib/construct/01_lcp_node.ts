@@ -2,8 +2,9 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Repository } from "aws-cdk-lib/aws-ecr";
-import { AwsLogDriver, Cluster, ContainerImage, CpuArchitecture, FargateTaskDefinition } from "aws-cdk-lib/aws-ecs";
+import { AwsLogDriver, Cluster, ContainerImage, CpuArchitecture, FargateTaskDefinition, FargateService, OperatingSystemFamily } from "aws-cdk-lib/aws-ecs";
 import { Construct } from 'constructs';
+import { LinuxArmBuildImage } from "aws-cdk-lib/aws-codebuild";
 
 export class LcpNode extends Construct {
   constructor(scope: Construct, id: string, _repositry: Repository) {
@@ -53,19 +54,13 @@ export class LcpNode extends Construct {
           "service-role/AmazonECSTaskExecutionRolePolicy"
         ),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMReadOnlyAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryReadOnly"),
       ],
     })
 
     // --------------------
     // AWS ECS & ECR
     // --------------------
-    // ECR
-    const repository = Repository.fromRepositoryName(
-      this,
-      "EcrRepository",
-      `repo-ibc-demo-ethereum-cosmos`,
-    );
-
     // ECS Cluster
     const cluster = new Cluster(this, "EcsCluster", {
       clusterName: `ibc-demo-ethereum-cosmos`,
@@ -74,18 +69,40 @@ export class LcpNode extends Construct {
 
     // ECS Task-definition
     const taskDefinition = new FargateTaskDefinition(this, "EcsTaskDefinition", {
-      cpu: 256,
-      memoryLimitMiB: 512,
+      cpu: 512,
+      memoryLimitMiB: 1024,
       runtimePlatform: {
+        operatingSystemFamily: OperatingSystemFamily.LINUX,
         cpuArchitecture: CpuArchitecture.X86_64,
       },
     });
+    
     taskDefinition.addContainer("LcpNodeContainer", {
       image: ContainerImage.fromEcrRepository(_repositry),
       portMappings: [
-        { containerPort: 80, hostPort: 80 },
-        { containerPort: 443, hostPort: 443 }
+        { containerPort: 80 },
+        { containerPort: 443 }
       ],
-    })
+      logging: new AwsLogDriver({
+        streamPrefix: "LcpNode",
+      }),
+    });
+
+    const fargateService = new FargateService(this, "EcsFargateService", {
+      cluster,
+      taskDefinition,
+      desiredCount: 1,
+      securityGroups: [securityGroup],
+      vpcSubnets: vpc.selectSubnets({ subnetType: ec2.SubnetType.PUBLIC }),
+      assignPublicIp: true,
+    });
+
+    new cdk.CfnOutput(this, "ClusterName", {
+      value: fargateService.cluster.clusterName,
+    });
+
+    new cdk.CfnOutput(this, "ClusterArn", {
+      value: fargateService.cluster.clusterArn,
+    });
   }
 }
