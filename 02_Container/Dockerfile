@@ -15,6 +15,10 @@ WORKDIR /workspace
 # GitHubリポジトリをクローン
 RUN git clone https://github.com/datachainlab/cosmos-ethereum-ibc-lcp.git
 
+# 
+RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
+    sh get-docker.sh
+
 # 環境変数を設定
 ENV PATH="/usr/local/go/bin:${PATH}"
 

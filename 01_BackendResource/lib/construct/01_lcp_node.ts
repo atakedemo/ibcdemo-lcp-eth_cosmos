@@ -155,7 +155,9 @@ export class LcpNode extends Construct {
       ],
       logging: new ecs.AwsLogDriver({
         streamPrefix: "LcpNode",
+        mode: ecs.AwsLogDriverMode.NON_BLOCKING,
       }),
+      privileged: true
     });
 
     const ec2Service = new ecs.Ec2Service(this, 'Ec2Service', {

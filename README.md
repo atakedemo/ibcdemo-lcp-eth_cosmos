@@ -26,52 +26,54 @@ docker exec -it ubuntu-dev /bin/bash
 
 ```bash
 aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com
-docker build -t tutorial/ibc-demo-eth-cosmos .
-docker tag tutorial/ibc-demo-eth-cosmos:latest 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com/tutorial/ibc-demo-eth-cosmos:latest
+docker build -t repo-ibc-demo-ethereum-cosmos . --platform linux/amd64
+docker tag repo-ibc-demo-ethereum-cosmos:latest 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com/repo-ibc-demo-ethereum-cosmos:latest
 docker push 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com/tutorial/ibc-demo-eth-cosmos:latest
 ```
 
-### 3.AWS ECSへのアクセス
+### 3.AWS ECS内のDocker環境へアクセス
 
-1. （初回のみ）AWS SSMプラグインの有効化
+1. SSMでEC2のインスタンスへアクセス
+
+2. Dokcerのイメージが動いていることを確認
+
+    ```bash
+    docker ps
+
+    CONTAINER ID   IMAGE                   COMMAND               CREATED          STATUS          PORTS     NAMES
+    fa8ca71e372e   59400000.dkr.e1...      "tail -f /dev/null"   7 minutes ago    Up 7 minutes              ecs-BackendResourceSt...
+    711d300a9c89   amazon/amazo...         "/pause"              7 minutes ago    Up 7 minutes              ecs-BackendResourceSt...
+    6d1aff9bced0   amazon/amazo...         "/agent"              33 minutes ago   Up 33 minutes             ecs-agent
+    ```
+
+3. Dockerコンテナ内でコマンドを実行
 
 ```bash
-curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/mac/sessionmanager-bundle.zip" -o "sessionmanager-bundle.zip"
-unzip sessionmanager-bundle.zip
-sudo ./sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b /usr/local/bin/session-manager-plugin
+docker exec -it <container-id> /bin/bash
 
-# インストールの確認
-session-manager-plugin
+#例
+docker exec -it fa8ca71e372e /bin/bash
 ```
 
-2. （初回のみ）ECSExecの有効化
+### 4.コンテナ内でのDocker起動
 
 ```bash
-aws ecs update-service --enable-execute-command --region ap-northeast-1 --cluster "ibc-demo-ethereum-cosmos" --service "BackendResourceStack-LcpNodeResEcsFargateService3FD40604-g8MqRRzL4tVW" | grep enableExecuteCommand
+apt get-install sudo
+sudo dockerd
 ```
 
-1. Fargateへアクセス
-  
-```bash
-aws ecs execute-command --region ap-northeast-1 --cluster "ibc-demo-ethereum-cosmos" --task "96f1ca4c75514b4dbc64440277d50c36" --container "LcpNodeContainer" --interactive --command "/bin/sh"
-```
-
-### 2.Intel SGXのセットアップ
+### 5.Intel SGXのセットアップ
 
 ```bash
 curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin
 chmod +x ./sgx_linux_x64_sdk_2.19.100.3.bin
 echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.19.100.3.bin
-source /opt/sgxsdk/environment
+
 ```
 
 ## メモ
 
-* AWS ECSで実行環境を立てる
-  * ECRへのアクセスがエラーになる
-  * 権限設定（IAM）
-  * ネットワーク設定
-* X
+* AWS ECSのコンテナをプライベートサブネットで動かす
 
 # 参考資料
 
