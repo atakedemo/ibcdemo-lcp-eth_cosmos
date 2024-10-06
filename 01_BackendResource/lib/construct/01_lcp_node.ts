@@ -113,7 +113,7 @@ export class LcpNode extends Construct {
     // --------------------
     // EC2
     // --------------------
-    const instanceType = new ec2.InstanceType('t3.large');
+    const instanceType = new ec2.InstanceType('t3.xlarge');
     const autoScalingGroup = new ecs.AsgCapacityProvider(this, 'IbcAsgCapacityProvider', {
       autoScalingGroup: new autoscaling.AutoScalingGroup(this, 'IbcEcsAsg', {
         vpc,
@@ -125,7 +125,13 @@ export class LcpNode extends Construct {
         minCapacity: 1,
         maxCapacity: 1,
         role: ec2Role,
-        securityGroup: securityGroupEc2
+        securityGroup: securityGroupEc2,
+        blockDevices: [
+          {
+            deviceName: "/dev/xvda",
+            volume: autoscaling.BlockDeviceVolume.ebs(100),
+          },
+        ]
       }),
     });
 
@@ -148,7 +154,7 @@ export class LcpNode extends Construct {
     taskDefinition.addContainer("LcpNodeContainer", {
       image: ecs.ContainerImage.fromEcrRepository(_repositry),
       cpu: 512,
-      memoryLimitMiB: 1024,
+      memoryLimitMiB: 2048,
       portMappings: [
         { containerPort: 80 },
         { containerPort: 443 }
@@ -163,8 +169,6 @@ export class LcpNode extends Construct {
     const ec2Service = new ecs.Ec2Service(this, 'Ec2Service', {
       cluster,
       taskDefinition,
-      // securityGroups: [securityGroupCluster],
-      // vpcSubnets: vpc.selectSubnets({ subnetType: ec2.SubnetType.PUBLIC }),
     });
   }
 }
