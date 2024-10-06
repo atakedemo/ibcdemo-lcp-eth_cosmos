@@ -58,7 +58,7 @@ docker exec -it fa8ca71e372e /bin/bash
 ### 4.コンテナ内でのDocker起動
 
 ```bash
-apt get-install sudo
+apt-get install sudo
 sudo dockerd
 ```
 
@@ -68,7 +68,7 @@ sudo dockerd
 curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin
 chmod +x ./sgx_linux_x64_sdk_2.19.100.3.bin
 echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.19.100.3.bin
-
+source /opt/sgxsdk/environment
 ```
 
 ## メモ
