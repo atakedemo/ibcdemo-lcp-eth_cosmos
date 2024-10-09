@@ -58,7 +58,9 @@ docker exec -it fa8ca71e372e /bin/bash
 ### 4.コンテナ内でのDocker起動
 
 ```bash
-apt-get install sudo
+apt-get install sudo　libssl-dev pkg-config librocksdb-dev libclang-dev llvm \
+    build-essential cmake libclang-dev llvm libz-dev libbz2-dev \
+    liblz4-dev libzstd-dev libsnappy-dev
 sudo dockerd
 ```
 
@@ -69,6 +71,12 @@ curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04-ser
 chmod +x ./sgx_linux_x64_sdk_2.19.100.3.bin
 echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.19.100.3.bin
 source /opt/sgxsdk/environment
+```
+
+```bash
+cd cosmos-ethereum-ibc-lcp/
+make yrly prepare-contracts build-images
+make e2e-test
 ```
 
 ## メモ
