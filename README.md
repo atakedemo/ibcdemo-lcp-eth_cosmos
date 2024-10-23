@@ -2,69 +2,78 @@
 
 IBC（LCP）を用いたCosmos&lt;>Ethereumのブリッジのデモ
 
-## 手順
+## 構築手順
 
-### 1.環境構築
+### 1. テスト用サーバーの構築
 
-Dockerコンテナのビルド
+UbuntuのEC2立てる
 
-```bash
-docker-compose up -d --build
-```
+#### 1-1. AWS CDKで最低限必要なリソースを構築する
 
-構築したコンテナに入る
+[01_BackendResource](./01_BackendResource/)で実行
 
 ```bash
-docker exec -it ubuntu-dev /bin/bash
+cd 01_BackendResource
+cdk bootstrap
+cdk deploy
 ```
 
-### 2. AWS ECSセットアップ
+### 1-2. 構築したEC2インスタンスへSSMにて、SSH接続する
 
-1. AWSコンソールにログインし、ECS (Elastic Container Service)を開く。
-2. 「クラスター」を選択して、「クラスターの作成」をクリックする。
-3. クラスターの設定で、「Networking only」を選択して、Fargateを使うクラスターを作成する。名前は適当に設定してOKや。
+EC2のコンソールより、構築されたインスタンスを選択し、「接続」を押下
+![EC2コンソール](./99_Asset/01_AWS%20EC2%20Console.png)
+
+SSMのメニューより、「接続」を押下
+![SSMメニュ](./99_Asset/02_AWS%20SSM%20Menu.png)
+
+※　手順2以降のセットアップは、上記SSMのコンソール上で実施する
+
+### 2. デモ用サーバーのセットアップ
+
+#### 2-1. RustやGoなどの必要言語をインストールする（この時点でAMIにしてバックアップする）
 
 ```bash
-aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com
-docker build -t repo-ibc-demo-ethereum-cosmos . --platform linux/amd64
-docker tag repo-ibc-demo-ethereum-cosmos:latest 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com/repo-ibc-demo-ethereum-cosmos:latest
-docker push 594175341170.dkr.ecr.ap-northeast-1.amazonaws.com/tutorial/ibc-demo-eth-cosmos:latest
+# ライブラリ類のインストール
+apt-get update && apt-get upgrade -y
+apt-get install -y libssl-dev make clang pkg-config libssl-dev
+
+# Goのインストール（1.18以上が必要）
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
+source ~/.profile
+sudo apt-get update
+sudo apt-get install build-essential
+
+# RustとCargoのインストール
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+. "$HOME/.cargo/env"
+rustup update
 ```
 
-### 3.AWS ECS内のDocker環境へアクセス
-
-1. SSMでEC2のインスタンスへアクセス
-
-2. Dokcerのイメージが動いていることを確認
-
-    ```bash
-    docker ps
-
-    CONTAINER ID   IMAGE                   COMMAND               CREATED          STATUS          PORTS     NAMES
-    fa8ca71e372e   59400000.dkr.e1...      "tail -f /dev/null"   7 minutes ago    Up 7 minutes              ecs-BackendResourceSt...
-    711d300a9c89   amazon/amazo...         "/pause"              7 minutes ago    Up 7 minutes              ecs-BackendResourceSt...
-    6d1aff9bced0   amazon/amazo...         "/agent"              33 minutes ago   Up 33 minutes             ecs-agent
-    ```
-
-3. Dockerコンテナ内でコマンドを実行
+※試した際の各言語のバージョン
 
 ```bash
-docker exec -it <container-id> /bin/bash
+go version
+> go version go1.21.0 linux/amd64
 
-#例
-docker exec -it fa8ca71e372e /bin/bash
+rustc version
+> rustc 1.82.0 (f6e511eec 2024-10-15)
+
+cargo version
+> cargo 1.82.0 (8f40fc59f 2024-08-21)
 ```
 
-### 4.コンテナ内でのDocker起動
+Dockerをインストールする
 
 ```bash
-apt-get install sudo　libssl-dev pkg-config librocksdb-dev libclang-dev llvm \
-    build-essential cmake libclang-dev llvm libz-dev libbz2-dev \
-    liblz4-dev libzstd-dev libsnappy-dev
-sudo dockerd
+wget -qO- https://get.docker.com | sh
+apt install docker-compose
+sudo groupadd docker
+sudo usermod -aG docker $USER
 ```
 
-### 5.Intel SGXのセットアップ
+#### 2-2. Intel SGX SDKをセットアップする
 
 ```bash
 curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin
@@ -73,17 +82,69 @@ echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.19.100.3.bin
 source /opt/sgxsdk/environment
 ```
 
+#### 2-3. Datachain提供のデモを動かしてみる
+
 ```bash
-cd cosmos-ethereum-ibc-lcp/
+# デモ用リポジトリのクローン
+git clone https://github.com/datachainlab/cosmos-ethereum-ibc-lcp.git && \
+cd cosmos-ethereum-ibc-lcp && \
+git clone https://github.com/datachainlab/lcp.git && \
+cd lcp && \
+rm -rf .git
+cd ..
+
+# ビルド＆テスト
 make yrly prepare-contracts build-images
 make e2e-test
 ```
 
-## メモ
+### 2-4. 上記、EC2にてEthereum、Tendermint、LCPノードをセットアップする
 
-* AWS ECSのコンテナをプライベートサブネットで動かす
+送金元チェーン（Tendermint）をローカル構築
 
-# 参考資料
+```bash
+make -C ./tests/e2e/chains/tendermint image
+```
+
+送金先チェーン（Ethreum）をセットアップするあたりに一部ソースコードを変更
+
+①　[./tests/e2e/chains/ethereum/Dockerfile.deposit](https://github.com/datachainlab/cosmos-ethereum-ibc-lcp/blob/main/tests/e2e/chains/ethereum/Dockerfile.deposit)
+
+1行目、node.jsのバージョンをv18へ変更（node:16-alpine3.17 -> node:18-alpine）
+
+```Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+...
+```
+
+② [./tests/e2e/chains/ethereum/Makefile](https://github.com/datachainlab/cosmos-ethereum-ibc-lcp/blob/main/tests/e2e/chains/ethereum/Makefile)
+
+125~127行目、Harhatのインストールコマンドを追加（これがないとHardhatのバージョン不整合エラーが発生する）
+
+```Makefile
+...
+.PHONY:deploy
+deploy:
+    $(DOCKER_COMPOSE) run -e USE_UPGRADE_TEST=$(USE_UPGRADE_TEST) contracts npm install@2.13.0
+    $(DOCKER_COMPOSE) run -e USE_UPGRADE_TEST=$(USE_UPGRADE_TEST) contracts $(HARDHAT) run ./scripts/deploy.js --network eth_local
+...
+```
+
+送金先チェーン（Ethreum）をローカル構築
+
+```bash
+make -C ./tests/e2e/cases/tm2eth network
+```
+
+Enclave用の鍵ペアを作成
+
+```bash
+./lcp/bin/lcp  --log_level=off enclave generate-key --enclave=./bin/enclave.signed.so
+```
+
+## 参考資料
 
 * [【AWS】M2 macでECSにデプロイしようとしたら、こけてしまう話](https://note.com/ryuone/n/nfae3cc204880)
 * [ECS FargateにSSMを利用してSSH接続する(チュートリアル)](https://qiita.com/koji0705/items/005ea6d7c21ddd24ebb3)
