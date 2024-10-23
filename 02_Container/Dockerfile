@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 
 # 必要なツールのインストール
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends wget curl git make binutils build-essential ca-certificates && \
+    apt-get install -y --no-install-recommends wget curl git make binutils build-essential && \
     wget https://go.dev/dl/go1.22.7.linux-amd64.tar.gz && \
     tar -C /usr/local -xzf go1.22.7.linux-amd64.tar.gz && \
     rm go1.22.7.linux-amd64.tar.gz && \
@@ -29,8 +29,9 @@ RUN curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04
 
 # GitHubリポジトリをクローン
 RUN git clone https://github.com/datachainlab/cosmos-ethereum-ibc-lcp.git && \
-    cd lcp && \
+    cd cosmos-ethereum-ibc-lcp && \
     git clone https://github.com/datachainlab/lcp.git && \
+    cd lcp && \
     rm -rf .git
 
 CMD ["tail", "-f", "/dev/null"]
