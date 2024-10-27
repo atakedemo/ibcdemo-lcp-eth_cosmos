@@ -112,7 +112,7 @@ export class DevInstance extends Construct {
     // --------------------
     // EC2
     // --------------------
-    const instanceType = new ec2.InstanceType('t3.xlarge');
+    const instanceType = new ec2.InstanceType('m6i.xlarge');
     const instance = new ec2.Instance(this, 'DevInstanceUbuntu', {
         instanceType,
         vpc,
@@ -128,6 +128,7 @@ export class DevInstance extends Construct {
             volume: ec2.BlockDeviceVolume.ebs(100),
           },
         ],
+        enclaveEnabled: true
     })
   }
 }
