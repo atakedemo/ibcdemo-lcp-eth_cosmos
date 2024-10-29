@@ -32,14 +32,51 @@ ssh -i ./98_key/{鍵の名称}.pem azureuser@{パブリックアドレス}
 
 ### 2. デモ用サーバーのセットアップ
 
-#### 2-1. RustやGoなどの必要言語をインストールする（この時点でAMIにしてバックアップする）
+#### 2-1. Intel SGX SDKをセットアップする
+
+```bash
+curl -LO https://download.01.org/intel-sgx/sgx-linux/2.19/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin
+chmod +x ./sgx_linux_x64_sdk_2.19.100.3.bin
+echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.19.100.3.bin
+
+curl -LO https://download.01.org/intel-sgx/sgx-linux/2.22/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.22.100.3.bin
+chmod +x ./sgx_linux_x64_sdk_2.22.100.3.bin
+echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.22.100.3.bin
+
+source /opt/sgxsdk/environment
+```
+
+```bash
+# インストール前の下準備
+set -eux
+wget "https://download.01.org/intel-sgx/sgx-linux/2.22/as.ld.objdump.r4.tar.gz" --progress=dot:giga
+tar -xvf as.ld.objdump.r4.tar.gz --directory /usr/local/bin/
+rm -f as.ld.objdump.r4.tar.gz
+
+# Intel SGX SDK(v2.22)のインストール
+set -eux
+wget -O sdk.bin "https://download.01.org/intel-sgx/sgx-linux/2.22/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.22.100.3.bin" --progress=dot:giga
+chmod +x sdk.bin
+echo -e "no\n/opt/intel" | ./sdk.bin
+echo "source /opt/intel/sgxsdk/environment" >> /root/.bashrc
+rm -f sdk.bin
+
+# Intel SGZX PWSのインストール
+cd /opt/intel/sgxsdk
+set -eux
+echo "deb [arch=amd64] ${url} ${distro} main"
+tee /etc/apt/sources.list.d/intel-sgx.list
+```
+
+#### 2-2. RustやGoなどの必要言語をインストールする（この時点でAMIにしてバックアップする）
 
 ※ "/home/azureuser" 配下で実行
 
 ```bash
 # ライブラリ類のインストール
 apt-get update && apt-get upgrade -y
-apt-get install -y libssl-dev make clang pkg-config libcurl4-openssl-dev libprotobuf-dev
+apt-get install -y libssl-dev make clang pkg-config libcurl4-openssl-dev libprotobuf-dev build-essential wget
+rm -rf /var/lib/apt/lists/*
 
 # Goのインストール（1.18以上が必要）
 wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
@@ -47,7 +84,6 @@ sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
 echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.profile
 source ~/.profile
 sudo apt-get update
-sudo apt-get install build-essential
 
 # RustとCargoのインストール
 curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -77,27 +113,11 @@ rustc --version
 cargo --version
 > cargo 1.82.0 (8f40fc59f 2024-08-21)
 
-docker version
-> Client: Docker Engine - Community
-> Version:           27.3.1
-> API version:       1.47
-> Go version:        go1.22.7
-...
+docker --version
+> 
 
-docker-compose version
+docker-compose --version
 > docker-compose version 1.29.2, build unknown
-> docker-py version: 5.0.3
-> CPython version: 3.10.12
-> OpenSSL version: OpenSSL 3.0.2 15 Mar 2022
-```
-
-#### 2-2. Intel SGX SDKをセットアップする
-
-```bash
-curl -LO https://download.01.org/intel-sgx/sgx-linux/2.23/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.23.100.2.bin
-chmod +x ./sgx_linux_x64_sdk_2.23.100.2.bin
-echo -e 'no\n/opt' | ./sgx_linux_x64_sdk_2.23.100.2.bin
-source /opt/sgxsdk/environment
 ```
 
 #### 2-3. Datachain提供のデモを動かしてみる
@@ -108,6 +128,7 @@ git clone https://github.com/datachainlab/cosmos-ethereum-ibc-lcp.git
 cd cosmos-ethereum-ibc-lcp
 git clone https://github.com/datachainlab/lcp.git
 cd lcp
+git checkout 4df1e8deb51f284d3c44136ff1a8c31dddc4bd90
 rm -rf .git
 cd ..
 
@@ -167,3 +188,4 @@ Enclave用の鍵ペアを作成
 
 * [【AWS】M2 macでECSにデプロイしようとしたら、こけてしまう話](https://note.com/ryuone/n/nfae3cc204880)
 * [ECS FargateにSSMを利用してSSH接続する(チュートリアル)](https://qiita.com/koji0705/items/005ea6d7c21ddd24ebb3)
+* [DCsv3 サイズ シリーズ - Azure Virtual Machines | Microsoft Learn](https://learn.microsoft.com/ja-jp/azure/virtual-machines/sizes/general-purpose/dcsv3-series?tabs=sizebasic#dcdsv3-series)
